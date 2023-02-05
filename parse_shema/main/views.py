@@ -18,7 +18,7 @@ class ImageFrontView(APIView):
     def post(self, request):
         try:
             file = request.data['file'].read()
-            ImageProcessing(file).call
+            ImageProcessing(file).call()
             return Response(
                 "Координаты созданы успешно",
                 status=status.HTTP_201_CREATED

@@ -1,7 +1,7 @@
 from django.urls import path
 # from rest_framework.routers import DefaultRouter
 
-from main.views import ImageFrontView# , OfficeViews
+from main.views import ImageFrontView  # , OfficeViews
 
 
 app_name = 'api'

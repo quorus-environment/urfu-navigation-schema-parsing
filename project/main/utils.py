@@ -13,8 +13,6 @@ import numpy as np
 class ImageProcessing:
     """Класс обработки изображений."""
 
-    # TODO - сделать изображение с этими цветами для теста
-    # предложить чтобы цвета отличались с двух сторон, типо слева крансый, тогда на том же уровне кабинет с каким то другим цветом
     ALL_COLORS: Tuple[Dict[Tuple[int, int, int], int]] = (
         {(255, 255, 255): "white"},
         {(255, 0, 0): "red"},
@@ -46,7 +44,8 @@ class ImageProcessing:
     def __start_defind_office(self) -> None:
         for line in self.array:
             tuple_result_in_line = self.__line_search(line)
-            if len(tuple_result_in_line[0]) != 0 or len(tuple_result_in_line[1]) != 0:
+            if (len(tuple_result_in_line[0]) != 0
+                    or len(tuple_result_in_line[1]) != 0):
                 self.__factory_office(tuple_result_in_line)
 
     def __line_search(self, line) -> None:

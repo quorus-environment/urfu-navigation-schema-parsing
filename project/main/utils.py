@@ -55,9 +55,9 @@ class ImageProcessing:
             color = self.__defind_color(element)
             if color == "white":
                 continue
-            elif color == "red":
+            if color == "red":
                 red.append(self.__defind_color(element))
-            elif color == "green":
+            if color == "green":
                 green.append(self.__defind_color(element))
         return (red, green)
 

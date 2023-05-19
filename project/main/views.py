@@ -2,8 +2,18 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.mixins import ListModelMixin
+from django.core import serializers
+from django.http import JsonResponse
 
-from main.utils import ImageProcessing
+from main.models import (
+    Body,
+    Floor,
+    Section,
+    Neighbor,
+    Hallway,
+    Office
+)
+from main.utils import SaveImageData
 
 
 class ImageFrontView(APIView):
@@ -19,11 +29,16 @@ class ImageFrontView(APIView):
     def post(self, request):
         try:
             file = request.data['file'].read()
-            ImageProcessing(file).call()
-            return Response(
-                "Координаты созданы успешно",
-                status=status.HTTP_201_CREATED
-            )
+            SaveImageData(image=file).call()
+            data = {
+                "bodys": serializers.serialize("json", Body.objects.all()),
+                "floors": serializers.serialize("json", Floor.objects.all()),
+                "sections": serializers.serialize("json", Section.objects.all()),
+                "neighbors": serializers.serialize("json", Neighbor.objects.all()),
+                "hallways": serializers.serialize("json", Hallway.objects.all()),
+                "offices": serializers.serialize("json", Office.objects.all())
+            }
+            return JsonResponse(data)
         except KeyError:
             return Response(
                 "В запросе отсутвует изоброжение",

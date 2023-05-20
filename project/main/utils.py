@@ -1,7 +1,9 @@
 import cv2
 import numpy as np
-import json
+import math
 from typing import Dict, List
+import datetime
+import json
 
 from main.models import (
     Floor,
@@ -15,14 +17,21 @@ from main.models import (
 
 class DefinitionObjects:
     """Определние объектов c помшью cv2."""
+    RGB_OBJ = {
+        "sections": [[37, 84, 234], [37, 84, 234]],
+        "hellway": [[218, 161, 99], [218, 161, 99]],
+        "office_one": [[100, 230, 137], [104, 231, 138]],
+        "office_two": [[58, 139, 79], [58, 139, 79]]
+    }
 
     def __init__(self, image) -> None:
         image = np.asarray(bytearray(image), dtype="uint8")
         self.img = cv2.imdecode(image, cv2.IMREAD_COLOR)
 
     def defind_sections(self) -> tuple:
-        lower = np.array([37, 84, 234])
-        upper = np.array([37, 84, 234])
+        """Определение секции"""
+        lower = np.array(self.RGB_OBJ["sections"][0])
+        upper = np.array(self.RGB_OBJ["sections"][1])
         mask = cv2.inRange(self.img, lower, upper)
         contours, _ = cv2.findContours(
             mask,
@@ -31,9 +40,28 @@ class DefinitionObjects:
         )
         return contours
 
+    def defind_angel_section(self, contours: tuple) -> int:
+        rect = cv2.minAreaRect(contours)
+        box = cv2.boxPoints(rect)
+        box = np.int0(box)
+        edge1 = np.int0((box[1][0] - box[0][0], box[1][1] - box[0][1]))
+        edge2 = np.int0((box[2][0] - box[1][0], box[2][1] - box[1][1]))
+
+        usedEdge = edge1
+        if cv2.norm(edge2) > cv2.norm(edge1):
+            usedEdge = edge2
+        reference = (1, 0)
+
+        angle = 180.0 / math.pi * math.acos(
+            (reference[0] * usedEdge[0] + reference[1] * usedEdge[1])
+            / (cv2.norm(reference) * cv2.norm(usedEdge))
+        )
+        return angle
+
     def defind_hellways(self) -> tuple:
-        lower = np.array([218, 161, 99])
-        upper = np.array([218, 161, 99])
+        """Определние коридора."""
+        lower = np.array(self.RGB_OBJ["hellway"][0])
+        upper = np.array(self.RGB_OBJ["hellway"][1])
         mask = cv2.inRange(self.img, lower, upper)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -45,8 +73,9 @@ class DefinitionObjects:
         return contours
 
     def defind_offices_one(self) -> tuple:
-        lower = np.array([100, 230, 137])
-        upper = np.array([104, 231, 138])
+        """Определние офисов."""
+        lower = np.array(self.RGB_OBJ["office_one"][0])
+        upper = np.array(self.RGB_OBJ["office_one"][1])
         mask = cv2.inRange(self.img, lower, upper)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -58,8 +87,9 @@ class DefinitionObjects:
         return contours
 
     def defind_offices_two(self) -> tuple:
-        lower = np.array([58, 139, 79])
-        upper = np.array([58, 139, 79])
+        """Определние офисов."""
+        lower = np.array(self.RGB_OBJ["office_two"][0])
+        upper = np.array(self.RGB_OBJ["office_two"][1])
         mask = cv2.inRange(self.img, lower, upper)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -72,26 +102,80 @@ class DefinitionObjects:
 
 
 class ReturnData:
-    def __init__(self) -> None:
-        self.auditoriums = self.__auditoriums()
-        self.graphs = self.__graphs()
+    def t_sections(self) -> Dict:
+        res = []
+        for obj in Section.objects.all():
+            res.append({
+                "id": obj.pk,
+                "auds": self.__auds_section(obj),
+                "corridor": self.__vectors_obj(obj.hallway),
+                "position": obj.position,
+                "floor": obj.floor.name,
+                "neighbors": list(obj.neighbors.all().values())
+            })
+        return json.dumps(res, default=self.__default) 
 
-    def __auditoriums(self) -> Dict:
-        return {
+    def __default(self, o):
+        if isinstance(o, (datetime.date, datetime.datetime)):
+            return o.isoformat()
 
-        }
+    def __auds_section(self, section: Section) -> List[Dict]:
+        res = []
+        for obj in section.offices.all():
+            res.append(
+                {
+                    "id": obj.pk,
+                    "vactors": self.__vectors_obj(obj),
+                    "startPoin": { "x": obj.x, "y": obj.y },
+                    "section": obj.section.pk
+                }
+            )
+        return res
 
-    def graphs(self, ) -> Dict:
-        return {
-
-        }
-
-    def json(self):
-        res = {
-            "auditoriums": self.auditoriums,
-            "graphs": self.graphs
-        }
-        return json.dumps(res)
+    def __vectors_obj(self, obj) -> List[Dict]:
+        x, y, w, h = int(obj.x), int(obj.y), int(obj.w), int(obj.h)
+        return [
+            [
+                {
+                    "x": x,
+                    "y": y
+                },
+                {
+                    "x": x,
+                    "y": y + h
+                },
+            ],
+            [
+                {
+                    "x": x,
+                    "y": y + h
+                },
+                {
+                    "x": x + w,
+                    "y": y + h
+                },
+            ],
+            [
+                {
+                    "x": x + w,
+                    "y": y + h
+                },
+                {
+                    "x": x + w,
+                    "y": y
+                },
+            ],
+            [
+                {
+                    "x": x + w,
+                    "y": y
+                },
+                {
+                    "x": x,
+                    "y": y
+                },
+            ]
+        ]
 
 
 class SaveImageData:
@@ -120,25 +204,33 @@ class SaveImageData:
         list_s_data = []
         for section in self.sections:
             x, y, w, h = cv2.boundingRect(section)
+            angel = self.image_proccessing.defind_angel_section(section)
+            type_position = self.__type_position_section(angel)
             s_data = {
                 "x": x,
                 "y": y,
                 "w": w,
                 "h": h
             }
-            self.__save_section()
+            self.__save_section(type_position)
             list_s_data.append([self.section, (x, y, w, h)])
             self.__data_inside_section(s_data)
         self.__set_neighbor(list_s_data)
 
-    def __save_section(self) -> None:
+    def __type_position_section(self, angel: float) -> str:
+        angel = int(angel)
+        if angel >= 45 and angel < 135:
+            return Section.VERTICALLY
+        return Section.HORIZONTALLY
+
+    def __save_section(self, type_position: str) -> None:
         """Сохранение секции в бд и в переменную класса.
 
         Так как секций может быть несколько
         на след. итерации здесь будет другая секция.
         Через нее сохранение помещений c section=self.sections.
         """
-        self.section = Section.objects.create(floor=self.floor, body=self.body)
+        self.section = Section.objects.create(floor=self.floor, body=self.body, position=type_position)
 
     def __data_inside_section(self, s_data: Dict[str, int]) -> None:
         self.__save_hallways(s_data)
@@ -201,11 +293,11 @@ class SaveImageData:
     def __is_office_adjacent_to_hallway(
             self, rect1: List[int], rect2: List[int]) -> bool:
         rect1_top = rect1[1]
-        rect1_bottom = rect1[1]+rect1[3]
+        rect1_bottom = rect1[1] + rect1[3]
         rect1_left = rect1[0]
-        rect1_right = rect1[0]+rect1[2]
+        rect1_right = rect1[0] + rect1[2]
         rect2_top = rect2[1]
-        rect2_bottom = rect2[1]+rect2[3]
+        rect2_bottom = rect2[1] + rect2[3]
         rect2_left = rect2[0]
         rect2_right = rect2[0]+rect2[2]
         if ((rect1_top == rect2_bottom or rect1_bottom == rect2_top) and
@@ -226,19 +318,21 @@ class SaveImageData:
             Neighbor.objects.create(section=two[0], neighbor_id=one[0].id)
 
     def __is_neighbor(self, rect1, rect2) -> bool:
-        rect1_top = rect1[1]
-        rect1_bottom = rect1[1] + rect1[3]
-        rect1_left = rect1[0]
-        rect1_right = rect1[0] + rect1[2]
-        rect2_top = rect2[1]
-        rect2_bottom = rect2[1] + rect2[3]
-        rect2_left = rect2[0]
-        rect2_right = rect2[0] + rect2[2]        
-        if (rect1_left <= rect2_left <= rect1_right and 
-                rect1_top <= rect2_top <= rect1_bottom and
-                rect1_left <= rect2_right <= rect1_right and
-                rect1_top <= rect2_bottom <= rect1_bottom and 
-                self.__is_office_adjacent_to_hallway(rect1, rect2)):
+        if self.__is_office_adjacent_to_hallway(rect1, rect2):
+            return True
+        rect1_tl = (rect1[0], rect1[1])
+        rect1_tr = (rect1[0] + rect1[2], rect1[1])
+        rect1_bl = (rect1[0], rect1[1] + rect1[3])
+        rect1_br = (rect1[0] + rect1[2], rect1[1] + rect1[3])
+
+        rect2_tl = (rect2[0], rect2[1])
+        rect2_tr = (rect2[0] + rect2[2], rect2[1])
+        rect2_bl = (rect2[0], rect2[1] + rect2[3])
+        rect2_br = (rect2[0] + rect2[2], rect2[1] + rect2[3])
+
+        if (rect1_tl[0] <= rect2_tl[0] <= rect1_tr[0] or rect1_tl[0] <= rect2_tr[0] <= rect1_tr[0]) and (rect1_tl[1] <= rect2_tl[1] <= rect1_bl[1] or rect1_tl[1] <= rect2_bl[1] <= rect1_bl[1]):
+            return True
+        elif (rect2_tl[0] <= rect1_tl[0] <= rect2_tr[0] or rect2_tl[0] <= rect1_tr[0] <= rect2_tr[0]) and (rect2_tl[1] <= rect1_tl[1] <= rect2_bl[1] or rect2_tl[1] <= rect1_bl[1] <= rect2_bl[1]):
             return True
         return False
 

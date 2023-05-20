@@ -48,6 +48,12 @@ class Floor(models.Model):
 
 class Section(models.Model):
     """Сущность секций"""
+    HORIZONTALLY = "hr"
+    VERTICALLY = "ver"
+    CHOICES = (
+        (HORIZONTALLY, "horizontally"),
+        (VERTICALLY, "vertically"),
+    )
     floor = models.ForeignKey(
         Floor,
         on_delete=models.CASCADE,
@@ -57,6 +63,12 @@ class Section(models.Model):
         Body,
         on_delete=models.CASCADE,
         related_name="sections"
+    )
+    position = models.CharField(
+        "Положение на фото",
+        max_length=3,
+        choices=CHOICES,
+        default=HORIZONTALLY
     )
     pub_date = models.DateTimeField(
         "Дата создания",

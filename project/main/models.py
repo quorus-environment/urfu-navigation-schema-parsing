@@ -103,6 +103,22 @@ class EntryPoint(models.Model):
         "H",
         max_length=20
     )
+
+    x_end = models.CharField(
+        "X_end",
+        max_length=20
+    )
+
+    y_end = models.CharField(
+        "Y_end",
+        max_length=20
+    )
+
+    height = models.CharField(
+        "height",
+        max_length=20
+    )
+
     pub_date = models.DateTimeField(
         "Дата создания",
         auto_now_add=True,

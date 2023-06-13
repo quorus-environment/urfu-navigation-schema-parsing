@@ -1,5 +1,3 @@
-import json
-
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.http import JsonResponse
@@ -23,9 +21,9 @@ class ImageFrontView(APIView):
             status = SaveImageData(image=file).call()
             if not status["status"] == 200:
                 return Response(
-                        "Что-то пошло не так",
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+                    "Что-то пошло не так",
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             res = ReturnData()
             data = res.t_sections()
             return JsonResponse(data, safe=False)

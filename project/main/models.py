@@ -80,6 +80,38 @@ class Section(models.Model):
         ordering = ("-pub_date",)
 
 
+class EntryPoint(models.Model):
+    """Точка входа в секцию"""
+    section = models.ForeignKey(
+        Section,
+        on_delete=models.CASCADE,
+        related_name="entry_points"
+    )
+    x = models.CharField(
+        "X",
+        max_length=20
+    )
+    y = models.CharField(
+        "Y",
+        max_length=20
+    )
+    w = models.CharField(
+        "W",
+        max_length=20
+    )
+    h = models.CharField(
+        "H",
+        max_length=20
+    )
+    pub_date = models.DateTimeField(
+        "Дата создания",
+        auto_now_add=True,
+        db_index=True
+    )
+
+    class Meta:
+        ordering = ("-pub_date",)
+
 class Neighbor(models.Model):
     """Соседи для секций"""
     neighbor_id = models.IntegerField()

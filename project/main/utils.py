@@ -11,22 +11,36 @@ from main.models import (
     Neighbor,
     Section,
     Hallway,
-    Body
+    Body,
+    EntryPoint
 )
 
 
 class DefinitionObjects:
     """Определние объектов c помшью cv2."""
     RGB_OBJ = {
-        "sections": [[37, 84, 234], [37, 84, 234]],
-        "hellway": [[218, 161, 99], [218, 161, 99]],
-        "office_one": [[100, 230, 137], [104, 231, 138]],
-        "office_two": [[58, 139, 79], [58, 139, 79]]
+        "entry_point": [[0, 120, 255], [2, 125, 255]],
+        "sections": [[35, 80, 230], [40, 90, 240]],
+        "hellway": [[215, 155, 95], [222, 165, 105]],
+        "office_one": [[100, 225, 135], [104, 231, 140]],
+        "office_two": [[54, 135, 75], [60, 145, 85]]
     }
 
     def __init__(self, image) -> None:
         image = np.asarray(bytearray(image), dtype="uint8")
         self.img = cv2.imdecode(image, cv2.IMREAD_COLOR)
+
+    def defind_entry_point(self) -> tuple:
+        """Определение точки входа в секцию"""
+        lower = np.array(self.RGB_OBJ["entry_point"][0])
+        upper = np.array(self.RGB_OBJ["entry_point"][1])
+        mask = cv2.inRange(self.img, lower, upper)
+        contours, _ = cv2.findContours(
+            mask,
+            cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE
+        )
+        return contours
 
     def defind_sections(self) -> tuple:
         """Определение секции"""
@@ -111,9 +125,10 @@ class ReturnData:
                 "corridor": self.__vectors_obj(obj.hallway),
                 "position": obj.position,
                 "floor": obj.floor.name,
+                "entry_points": self.__enty_points(obj),
                 "neighbors": list(obj.neighbors.all().values())
             })
-        return json.dumps(res, default=self.__default) 
+        return json.dumps(res, default=self.__default)
 
     def __default(self, o):
         if isinstance(o, (datetime.date, datetime.datetime)):
@@ -125,8 +140,21 @@ class ReturnData:
             res.append(
                 {
                     "id": obj.pk,
-                    "vactors": self.__vectors_obj(obj),
-                    "startPoin": { "x": obj.x, "y": obj.y },
+                    "vectors": self.__vectors_obj(obj),
+                    "startPoint": {"x": obj.x, "y": obj.y},
+                    "section": obj.section.pk
+                }
+            )
+        return res
+
+    def __enty_points(self, section: Section) -> List[Dict]:
+        """Точки входа в секции."""
+        res = []
+        for obj in section.entry_points.all():
+            res.append(
+                {
+                    "id": obj.pk,
+                    "vectors": self.__vectors_obj(obj),
                     "section": obj.section.pk
                 }
             )
@@ -193,6 +221,7 @@ class SaveImageData:
         return self.__result_hash(status=200)
 
     def __set_data(self) -> None:
+        self.entry_points = self.image_proccessing.defind_entry_point()
         self.sections = self.image_proccessing.defind_sections()
         self.hallways = self.image_proccessing.defind_hellways()
         self.offices_one = self.image_proccessing.defind_offices_one()
@@ -230,10 +259,36 @@ class SaveImageData:
         на след. итерации здесь будет другая секция.
         Через нее сохранение помещений c section=self.sections.
         """
-        self.section = Section.objects.create(floor=self.floor, body=self.body, position=type_position)
+        self.section = Section.objects.create(
+            floor=self.floor,
+            body=self.body,
+            position=type_position
+        )
 
     def __data_inside_section(self, s_data: Dict[str, int]) -> None:
+        """Сохраняем данные внутри секции"""
+        self.__save_entry_points(s_data)
         self.__save_hallways(s_data)
+
+    def __save_entry_points(self, s_data: Dict[str, int]) -> None:
+        """Сохранение данных точки входа в секцию"""
+        for entry_point in self.entry_points:
+            x, y, w, h = cv2.boundingRect(entry_point)
+            obj = {
+                "x": x,
+                "y": y,
+                "w": w,
+                "h": h
+            }
+            if not self.__is_in_section(s_data, obj):
+                continue
+            EntryPoint.objects.create(
+                section=self.section,
+                x=obj["x"],
+                y=obj["y"],
+                w=obj["w"],
+                h=obj["h"]
+            )
 
     def __save_hallways(self, s_data: Dict[str, int]) -> None:
         for hallway in self.hallways:
@@ -289,7 +344,7 @@ class SaveImageData:
             and s_data["y"] <= obj["y"]
             and obj["y"] + obj["h"] <= s_data["y"] + s_data["h"]
         )
-    
+
     def __is_office_adjacent_to_hallway(
             self, rect1: List[int], rect2: List[int]) -> bool:
         rect1_top = rect1[1]
@@ -299,12 +354,12 @@ class SaveImageData:
         rect2_top = rect2[1]
         rect2_bottom = rect2[1] + rect2[3]
         rect2_left = rect2[0]
-        rect2_right = rect2[0]+rect2[2]
-        if ((rect1_top == rect2_bottom or rect1_bottom == rect2_top) and
-                rect1_left < rect2_right and rect1_right > rect2_left):
+        rect2_right = rect2[0] + rect2[2]
+        if ((rect1_top == rect2_bottom or rect1_bottom == rect2_top)
+                and rect1_left < rect2_right and rect1_right > rect2_left):
             return True
-        elif ((rect1_left == rect2_right or rect1_right == rect2_left) and
-                rect1_top < rect2_bottom and rect1_bottom > rect2_top):
+        elif ((rect1_left == rect2_right or rect1_right == rect2_left)
+                and rect1_top < rect2_bottom and rect1_bottom > rect2_top):
             return True
         return False
 
@@ -323,13 +378,11 @@ class SaveImageData:
         rect1_tl = (rect1[0], rect1[1])
         rect1_tr = (rect1[0] + rect1[2], rect1[1])
         rect1_bl = (rect1[0], rect1[1] + rect1[3])
-        rect1_br = (rect1[0] + rect1[2], rect1[1] + rect1[3])
-
+        # rect1_br = (rect1[0] + rect1[2], rect1[1] + rect1[3])
         rect2_tl = (rect2[0], rect2[1])
         rect2_tr = (rect2[0] + rect2[2], rect2[1])
         rect2_bl = (rect2[0], rect2[1] + rect2[3])
-        rect2_br = (rect2[0] + rect2[2], rect2[1] + rect2[3])
-
+        # rect2_br = (rect2[0] + rect2[2], rect2[1] + rect2[3])
         if (rect1_tl[0] <= rect2_tl[0] <= rect1_tr[0] or rect1_tl[0] <= rect2_tr[0] <= rect1_tr[0]) and (rect1_tl[1] <= rect2_tl[1] <= rect1_bl[1] or rect1_tl[1] <= rect2_bl[1] <= rect1_bl[1]):
             return True
         elif (rect2_tl[0] <= rect1_tl[0] <= rect2_tr[0] or rect2_tl[0] <= rect1_tr[0] <= rect2_tr[0]) and (rect2_tl[1] <= rect1_tl[1] <= rect2_bl[1] or rect2_tl[1] <= rect1_bl[1] <= rect2_bl[1]):

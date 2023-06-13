@@ -48,6 +48,12 @@ class Floor(models.Model):
 
 class Section(models.Model):
     """Сущность секций"""
+    HORIZONTALLY = "hr"
+    VERTICALLY = "ver"
+    CHOICES = (
+        (HORIZONTALLY, "horizontally"),
+        (VERTICALLY, "vertically"),
+    )
     floor = models.ForeignKey(
         Floor,
         on_delete=models.CASCADE,
@@ -58,6 +64,12 @@ class Section(models.Model):
         on_delete=models.CASCADE,
         related_name="sections"
     )
+    position = models.CharField(
+        "Положение на фото",
+        max_length=3,
+        choices=CHOICES,
+        default=HORIZONTALLY
+    )
     pub_date = models.DateTimeField(
         "Дата создания",
         auto_now_add=True,
@@ -67,6 +79,54 @@ class Section(models.Model):
     class Meta:
         ordering = ("-pub_date",)
 
+
+class EntryPoint(models.Model):
+    """Точка входа в секцию"""
+    section = models.ForeignKey(
+        Section,
+        on_delete=models.CASCADE,
+        related_name="entry_points"
+    )
+    x = models.CharField(
+        "X",
+        max_length=20
+    )
+    y = models.CharField(
+        "Y",
+        max_length=20
+    )
+    w = models.CharField(
+        "W",
+        max_length=20
+    )
+    h = models.CharField(
+        "H",
+        max_length=20
+    )
+
+    x_end = models.CharField(
+        "X_end",
+        max_length=20
+    )
+
+    y_end = models.CharField(
+        "Y_end",
+        max_length=20
+    )
+
+    height = models.CharField(
+        "height",
+        max_length=20
+    )
+
+    pub_date = models.DateTimeField(
+        "Дата создания",
+        auto_now_add=True,
+        db_index=True
+    )
+
+    class Meta:
+        ordering = ("-pub_date",)
 
 class Neighbor(models.Model):
     """Соседи для секций"""

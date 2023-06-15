@@ -126,7 +126,9 @@ class EntryPoint(models.Model):
     )
 
     class Meta:
+        db_table = "main_entry_point"
         ordering = ("-pub_date",)
+
 
 class Neighbor(models.Model):
     """Соседи для секций"""

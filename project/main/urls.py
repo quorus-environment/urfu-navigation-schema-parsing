@@ -1,14 +1,11 @@
 from django.urls import path
-# from rest_framework.routers import DefaultRouter
-
-from main.views import ImageFrontView  # , OfficeViews
+from main.views import (
+    ImageFrontView
+)
 
 
 app_name = 'api'
 
-# router_v1 = DefaultRouter()
-# router_v1.register("offices", OfficeViews, basename="offices")
 urlpatterns = [
-    path('v1/save_point', ImageFrontView.as_view(), name='save_point'),
-    # path('v1/', include(router_v1.urls))
+    path('v1/save_point', ImageFrontView.as_view(), name='save_point')
 ]

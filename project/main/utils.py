@@ -54,7 +54,7 @@ class DefinitionObjects:
         )
         return contours
 
-    def defind_angel_section(self, contours: tuple) -> int:
+    def defind_angel_hallway(self, contours: tuple) -> int:
         rect = cv2.minAreaRect(contours)
         box = cv2.boxPoints(rect)
         box = np.int0(box)
@@ -128,11 +128,7 @@ class ReturnData:
                 "entry_points": self.__enty_points(obj),
                 "neighbors": list(obj.neighbors.all().values())
             })
-        return json.dumps(res, default=self.__default)
-
-    def __default(self, o):
-        if isinstance(o, (datetime.date, datetime.datetime)):
-            return o.isoformat()
+        return res
 
     def __auds_section(self, section: Section) -> List[Dict]:
         res = []
@@ -233,15 +229,13 @@ class SaveImageData:
         list_s_data = []
         for section in self.sections:
             x, y, w, h = cv2.boundingRect(section)
-            angel = self.image_proccessing.defind_angel_section(section)
-            type_position = self.__type_position_section(angel)
             s_data = {
                 "x": x,
                 "y": y,
                 "w": w,
                 "h": h
             }
-            self.__save_section(type_position)
+            self.__save_section()
             list_s_data.append([self.section, (x, y, w, h)])
             self.__data_inside_section(s_data)
         self.__set_neighbor(list_s_data)
@@ -252,7 +246,7 @@ class SaveImageData:
             return Section.VERTICALLY
         return Section.HORIZONTALLY
 
-    def __save_section(self, type_position: str) -> None:
+    def __save_section(self) -> None:
         """Сохранение секции в бд и в переменную класса.
 
         Так как секций может быть несколько
@@ -261,9 +255,13 @@ class SaveImageData:
         """
         self.section = Section.objects.create(
             floor=self.floor,
-            body=self.body,
-            position=type_position
+            body=self.body
         )
+
+    def __update_position(self, type_position: str) -> None:
+        """Обновление положения для секции."""
+        self.section.position = type_position 
+        self.section.save()
 
     def __data_inside_section(self, s_data: Dict[str, int]) -> None:
         """Сохраняем данные внутри секции"""
@@ -293,6 +291,8 @@ class SaveImageData:
     def __save_hallways(self, s_data: Dict[str, int]) -> None:
         for hallway in self.hallways:
             x, y, w, h = cv2.boundingRect(hallway)
+            angel = self.image_proccessing.defind_angel_hallway(hallway)
+            type_position = self.__type_position_section(angel)
             obj = {
                 "x": x,
                 "y": y,
@@ -308,6 +308,7 @@ class SaveImageData:
                 w=obj["w"],
                 h=obj["h"]
             )
+            self.__update_position(type_position)
             self.__save_offices((x, y, w, h))
 
     def __save_offices(self, rect2_hallway: List[int]) -> None:

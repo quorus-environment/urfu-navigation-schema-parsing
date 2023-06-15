@@ -8,21 +8,20 @@ from main.utils import SaveImageData, ReturnData
 class ImageFrontView(APIView):
     """Получение изображения с фронта.
 
-    - Сохранение изображения ?
     - Запуск скрипта по изображению
-    - Сохранение точек в бд
-    - Отпарвка координат кабинета обратно ?
-    - Или еще один эндпоинт get, который отдает все эти точки ?
+    - Сохранение координат в бд
+    - Отпарвка координат по всему данных из фотографии
     """
 
     def post(self, request):
+        """Получение и сохранение данных по фотографии."""
         try:
             file = request.data['file'].read()
             status = SaveImageData(image=file).call()
             if not status["status"] == 200:
                 return Response(
                     "Что-то пошло не так",
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=422
                 )
             res = ReturnData()
             data = res.t_sections()
@@ -30,5 +29,5 @@ class ImageFrontView(APIView):
         except KeyError:
             return Response(
                 "В запросе отсутвует изоброжение",
-                status=status.HTTP_400_BAD_REQUEST
+                status=404
             )
